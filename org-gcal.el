@@ -288,6 +288,13 @@ entries."
   :group 'org-gcal
   :type 'string)
 
+(defcustom org-gcal-org-timestamp-property :scheduled
+  "`org-mode' property to use for event timestamps.
+Admissible values are `:scheduled' and `:deadline'."
+  :group 'org-gcal
+  :type '(choice (const :tag "Scheduled" :scheduled)
+		 (const :tag "Deadline" :deadline)))
+
 (defvar org-gcal--sync-lock nil
   "Set if a sync function is running.")
 
@@ -1120,9 +1127,9 @@ This will also update the stored ID locations using
       ;; Parse :org-gcal: drawer for event time and description.
       (when
           (re-search-forward
-            (format "^[ \t]*:%s:[ \t]*$" org-gcal-drawer-name)
-            (save-excursion (outline-next-heading) (point))
-            'noerror)
+           (format "^[ \t]*:%s:[ \t]*$" org-gcal-drawer-name)
+           (save-excursion (outline-next-heading) (point))
+           'noerror)
         ;; First read any event time from the drawer if present. It's located
         ;; at the beginning of the drawer.
         (save-excursion
@@ -1152,8 +1159,8 @@ This will also update the stored ID locations using
                    " *:PROPERTIES:\n *\\(.*\\(?:\n.*\\)*?\\) *:END:\n+"
                    ""
                    desc)))))))
-    ;; Prefer to read event time from the SCHEDULED property if present.
-    (setq tobj (or (org-element-property :scheduled elem) tobj))
+    ;; Prefer to read event time from the org timestamp property if present.
+    (setq tobj (or (org-element-property org-gcal-org-timestamp-property elem) tobj))
     (when tobj
       (when (plist-get (cadr tobj) :year-start)
         (setq
@@ -1719,12 +1726,16 @@ heading."
                        (if (< 11 (length end))
                            end
                          (org-gcal--iso-previous-day end))))))))
-      (if (org-element-property :scheduled elem)
+      (if (org-element-property org-gcal-org-timestamp-property elem)
           (unless (and recurrence old-start)
             ;; Ensure CLOSED timestamp isn’t wiped out by ‘org-gcal-sync’ (see
             ;; https://github.com/kidd/org-gcal.el/issues/218).
             (let ((org-closed-keep-when-no-todo t))
-              (org-schedule nil timestamp)))
+	      (pcase org-gcal-org-timestamp-property
+		(:scheduled (org-schedule nil timestamp))
+		(:deadline (org-deadline nil timestamp))
+		(_ (user-error "Inadmissible value `%S' of ‘org-gcal-org-timestamp-property’"
+			       org-gcal-org-timestamp-property)))))
         (insert timestamp)
         (newline)
         (when desc (newline))))
