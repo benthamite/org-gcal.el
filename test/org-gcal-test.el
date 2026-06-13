@@ -667,6 +667,40 @@ Second paragraph
                           error))
         errors)))))
 
+(ert-deftest org-gcal-test--sync-does-not-rescan-ids-for-each-buffer ()
+  "Verify `org-gcal-sync' does not rebuild ID locations for each ID file."
+  (let* ((calendar-file (make-temp-file "org-gcal-calendar." nil ".org"))
+         (id-file-a (make-temp-file "org-gcal-entry-a." nil ".org"))
+         (id-file-b (make-temp-file "org-gcal-entry-b." nil ".org"))
+         (org-gcal-fetch-file-alist
+          `((,org-gcal-test-calendar-id . ,calendar-file)))
+         (org-gcal-auto-archive nil)
+         (scan-count 0))
+    (unwind-protect
+        (progn
+          (dolist (file (list calendar-file id-file-a id-file-b))
+            (with-temp-file file
+              (insert "* Event\n")))
+          (cl-letf (((symbol-function 'org-generic-id-update-id-locations)
+                     (lambda (&rest _args)
+                       (cl-incf scan-count)))
+                    ((symbol-function 'org-generic-id-files)
+                     (lambda ()
+                       (list id-file-a id-file-b)))
+                    ((symbol-function 'org-gcal--sync-calendar)
+                     (lambda (&rest _args)
+                       (deferred:succeed nil)))
+                    ((symbol-function 'org-gcal--sync-buffer-inner)
+                     (lambda (&rest _args)
+                       (deferred:succeed nil)))
+                    ((symbol-function 'org-gcal--notify)
+                     #'ignore))
+            (deferred:sync! (org-gcal-sync t t)))
+          (should (= scan-count 2)))
+      (dolist (file (list calendar-file id-file-a id-file-b))
+        (when (file-exists-p file)
+          (delete-file file))))))
+
 (ert-deftest org-gcal-test--with-point-at-no-widen-stale-marker ()
   "Verify stale markers report the killed buffer before moving point."
   (org-gcal-test--should-error-match "marker.*buffer has been killed"

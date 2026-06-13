@@ -321,6 +321,9 @@ entries."
 (defvar org-gcal--sync-lock nil
   "Set if a sync function is running.")
 
+(defvar org-gcal--inhibit-sync-buffer-id-update nil
+  "Non-nil means `org-gcal-sync-buffer' should skip its final ID scan.")
+
 (defvar org-gcal-token-plist nil
   "Token plist.")
 
@@ -415,8 +418,9 @@ SKIP-EXPORT.  Set SILENT to non-nil to inhibit notifications."
                              (with-current-buffer (find-file-noselect file 'nowarn)
                                (org-with-wide-buffer
                                 (org-gcal--sync-unlock)
-                                (org-gcal-sync-buffer skip-export silent 'filter-time
-                                                      'filter-managed))))
+                                (let ((org-gcal--inhibit-sync-buffer-id-update t))
+                                  (org-gcal-sync-buffer skip-export silent 'filter-time
+                                                        'filter-managed)))))
                            (org-generic-id-files))))))
      :finally
      (lambda ()
@@ -842,7 +846,8 @@ to “org”."
                         (deferred:succeed nil))))
      :finally
      (lambda ()
-       (org-generic-id-update-id-locations org-gcal-entry-id-property)
+       (unless org-gcal--inhibit-sync-buffer-id-update
+         (org-generic-id-update-id-locations org-gcal-entry-id-property))
        (org-gcal--sync-unlock)))))
 
 (defmacro org-gcal--with-point-at-no-widen (pom &rest body)
