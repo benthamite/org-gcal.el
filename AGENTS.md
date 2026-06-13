@@ -72,3 +72,9 @@ Notes:
 - Do not edit generated `.elc` files by hand.
 - If modifying `.github/workflows/main.yml` or other Github Action files, use
   `actionlint` to check for errors, attempting to install it if not present.
+
+## Latest session
+
+Diagnosed a freeze in `org-gcal-sync` using the captured backtrace, which showed repeated full `entry-id` location scans through `org-agenda-files` on a large Google Drive-backed agenda set. Added and pushed a fix so nested `org-gcal-sync-buffer` calls skip redundant final ID rescans while direct buffer sync still refreshes ID locations; the RED reproduction failed with `scan-count=4` and now passes with `scan-count=2`.
+
+Full details: logs/2026-06-13.md
